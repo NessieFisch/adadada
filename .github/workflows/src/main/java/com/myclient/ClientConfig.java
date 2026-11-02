@@ -16,8 +16,8 @@ public class ClientConfig {
     public int cfgVersion = 0;
 
     // Skies
-    public boolean skyOn = false;
-    public int skyId = 0;
+    public boolean skyOn = true;
+    public int skyId = 16;
     public float skyIntensity = 0.9f;
     public float skyAtmosphere = 0.6f;
     public int skyTime = 0;               // 0 auto, 1 day, 2 dusk, 3 night, 4 midnight
@@ -56,14 +56,14 @@ public class ClientConfig {
         hudScale.put(id, Math.max(0.5f, Math.min(2f, Math.round(v * 10f) / 10f)));
     }
 
-    public static void reset() { instance = new ClientConfig(); instance.cfgVersion = 4; instance.save(); }
+    public static void reset() { instance = new ClientConfig(); instance.cfgVersion = 5; instance.save(); }
 
     public static ClientConfig get() {
         if (instance == null) {
             try {
                 if (Files.exists(FILE)) instance = GSON.fromJson(Files.readString(FILE), ClientConfig.class);
             } catch (Exception ignored) {}
-            if (instance == null) { instance = new ClientConfig(); instance.cfgVersion = 4; }
+            if (instance == null) { instance = new ClientConfig(); instance.cfgVersion = 5; }
             if (instance.cfgVersion < 3) {            // config from an old version: take the new defaults
                 instance.accent = 0xFF8B5CF6;
                 instance.cursorColor = 0xFFFFFFFF;
@@ -72,7 +72,8 @@ public class ClientConfig {
                 instance.systemMusic = true;
                 if (instance.hudPos != null) instance.hudPos.clear();
             }
-            if (instance.cfgVersion < 4) { instance.cfgVersion = 4; instance.skyOn = false; instance.skyId = 0; instance.showNowPlaying = true; }
+            if (instance.cfgVersion < 4) instance.showNowPlaying = true;
+            if (instance.cfgVersion < 5) { instance.cfgVersion = 5; instance.skyOn = true; instance.skyId = 16; instance.skyIntensity = 1.0f; }
             if (instance.hudPos == null) instance.hudPos = new java.util.HashMap<>();
             if (instance.hudScale == null) instance.hudScale = new java.util.HashMap<>();
         }

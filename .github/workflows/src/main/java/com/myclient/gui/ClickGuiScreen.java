@@ -415,8 +415,9 @@ public class ClickGuiScreen extends Screen {
         int hover = -1;
         for (int r = 0; r < visibleRows; r++) {
             for (int col = 0; col < cols; col++) {
-                int i = (skyScroll + r) * cols + col;
-                if (i >= Skies.COUNT) break;
+                int pos = (skyScroll + r) * cols + col;
+                if (pos >= Skies.COUNT) break;
+                int i = Skies.ORDER[pos];
                 final int idx = i;
                 int cx = x + col * (cw + gap), cy = y + r * (ch + 5);
                 boolean sel = c.skyOn && c.skyId == i, hov = in(cx, cy, cw, ch);
@@ -449,8 +450,9 @@ public class ClickGuiScreen extends Screen {
         Txt.draw(g, font, "Time of day", x, y + 36, TXT, false);
         segmented(g, x, y + 48, w, 22, new String[] { "Auto", "Day", "Dusk", "Night", "Midnight" }, c.skyTime, v -> c().skyTime = v);
         button(g, "Animation: " + (c.skyAnimate ? "ON" : "OFF"), x, y + 80, 130, 20, c.skyAnimate, () -> c().skyAnimate = !c().skyAnimate);
-        String ts = Skies.timeStatus == -1 ? "Time of day is not supported on this version (the sky still works)."
-                : "Atmosphere tints the whole picture. Time of day only changes what you see.";
+        String ts = Skies.timeRead == -1 ? "Could not read the world time on this version, Realistic uses noon."
+                : Skies.timeStatus == -1 ? "Time of day only changes the sky here, not the world light."
+                : "Realistic follows the real time of day. Atmosphere tints the whole picture.";
         Txt.draw(g, font, ts, x, y + 110, sub(), false);
         Txt.draw(g, font, "Skies fade out in caves, indoors, the Nether and the End.", x, y + 122, sub(), false);
     }

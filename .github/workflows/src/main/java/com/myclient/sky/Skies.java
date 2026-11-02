@@ -15,7 +15,10 @@ import java.util.Random;
  */
 public final class Skies {
     public static final String[] NAMES = { "Nebula", "Aurora", "Galaxy", "End Beams", "Underwater", "Meteor Shower", "Star Trails", "Sunset",
-            "Thunderstorm", "Blood Moon", "Comet", "Solar Eclipse", "Neon Horizon", "Cherry Blossom", "Saturn", "Void" };
+            "Thunderstorm", "Blood Moon", "Comet", "Solar Eclipse", "Neon Horizon", "Cherry Blossom", "Saturn", "Void", "Realistic" };
+    public static final int REALISTIC = 16;
+    /** order in the menu: Realistic first */
+    public static final int[] ORDER = { 16, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
     public static final int COUNT = NAMES.length;
 
     /** set by the menu while hovering a card, so you see the sky live before choosing it */
@@ -40,10 +43,11 @@ public final class Skies {
             { 0xFF140428, 0xFFE0309A, 0xFFFF60C0, 0xFF50105A },   // neon horizon
             { 0xFFD08AB8, 0xFFFFD6E8, 0xFFFFE0F0, 0xFF8A3A62 },   // cherry blossom
             { 0xFF05061A, 0xFF1C1040, 0xFF6A4CC0, 0xFF140A30 },   // saturn
-            { 0xFF000000, 0xFF14081E, 0xFF5A2A8A, 0xFF08040C } }; // void
-    private static final int[] STARS = { 80, 60, 90, 40, 0, 90, 0, 20, 0, 40, 90, 20, 30, 0, 80, 30 };
-    private static final float[] TOPA = { 0.82f, 0.82f, 0.82f, 0.85f, 0.55f, 0.82f, 0.85f, 0.62f, 0.88f, 0.80f, 0.82f, 0.86f, 0.78f, 0.50f, 0.82f, 0.92f };
-    private static final float[] BOTA = { 0.18f, 0.16f, 0.18f, 0.20f, 0.35f, 0.18f, 0.16f, 0.60f, 0.45f, 0.30f, 0.18f, 0.40f, 0.55f, 0.45f, 0.18f, 0.20f };
+            { 0xFF000000, 0xFF14081E, 0xFF5A2A8A, 0xFF08040C },   // void
+            { 0xFF2A6CC8, 0xFFB8D4F0, 0xFFFFD6A0, 0xFF203050 } }; // realistic
+    private static final int[] STARS = { 80, 60, 90, 40, 0, 90, 0, 20, 0, 40, 90, 20, 30, 0, 80, 30, 0 };
+    private static final float[] TOPA = { 0.82f, 0.82f, 0.82f, 0.85f, 0.55f, 0.82f, 0.85f, 0.62f, 0.88f, 0.80f, 0.82f, 0.86f, 0.78f, 0.50f, 0.82f, 0.92f, 0.5f };
+    private static final float[] BOTA = { 0.18f, 0.16f, 0.18f, 0.20f, 0.35f, 0.18f, 0.16f, 0.60f, 0.45f, 0.30f, 0.18f, 0.40f, 0.55f, 0.45f, 0.18f, 0.20f, 0.3f };
 
     private static final int N = 90, B = 16;
     private static final float[] sAz = new float[N], sEl = new float[N], sPh = new float[N];
@@ -63,12 +67,31 @@ public final class Skies {
 
     private static float wrap(float d) { return ((d + 180f) % 360f + 360f) % 360f - 180f; }
 
-    private static boolean proj(float az, float el, float[] out) {
-        float da = wrap(az - yawDeg), de = el - thetaUp;
-        if (Math.abs(da) > 78f || Math.abs(de) > 78f) return false;
-        out[0] = halfW + (float) Math.tan(Math.toRadians(da)) * k;
-        out[1] = halfH - (float) Math.tan(Math.toRadians(de)) * k;
+    private static final float[] camR = new float[3], camU = new float[3], camF = new float[3];
+
+    private static void setupCamera(float yaw, float pitch) {
+        double y = Math.toRadians(yaw), p = Math.toRadians(pitch);
+        float sy = (float) Math.sin(y), cy = (float) Math.cos(y), sp = (float) Math.sin(p), cp = (float) Math.cos(p);
+        camF[0] = -sy * cp; camF[1] = -sp;     camF[2] = cy * cp;
+        camR[0] = -cy;      camR[1] = 0;       camR[2] = -sy;
+        camU[0] = -sy * sp; camU[1] = cp;      camU[2] = cy * sp;
+    }
+
+    /** world direction -> screen position. false if it is behind you. */
+    private static boolean projDir(float dx, float dy, float dz, float[] out) {
+        float zc = dx * camF[0] + dy * camF[1] + dz * camF[2];
+        if (zc < 0.06f) return false;
+        float xc = dx * camR[0] + dy * camR[1] + dz * camR[2];
+        float yc = dx * camU[0] + dy * camU[1] + dz * camU[2];
+        out[0] = halfW + xc / zc * k;
+        out[1] = halfH - yc / zc * k;
         return true;
+    }
+
+    private static boolean proj(float az, float el, float[] out) {
+        double a = Math.toRadians(az), e = Math.toRadians(el);
+        float ce = (float) Math.cos(e);
+        return projDir((float) (-Math.sin(a)) * ce, (float) Math.sin(e), (float) Math.cos(a) * ce, out);
     }
 
     // ---------------------------------------------------------------- client side time of day
@@ -134,11 +157,14 @@ public final class Skies {
         float pitch = Math.max(-88f, Math.min(88f, mc.player.getXRot()));
         thetaUp = -pitch;
         yawDeg = mc.player.getYRot();
+        setupCamera(yawDeg, pitch);
         float hy = halfH + (float) Math.tan(Math.toRadians(thetaUp)) * k;
         float t = c.skyAnimate ? now / 1e9f : 0f;
         float in = c.skyIntensity * fade, atm = c.skyAtmosphere * fade;
         float ppd = (float) (k * Math.PI / 180.0);
         int[] col = COL[id];
+
+        if (id == REALISTIC) { realistic(g, W, H, hy, (int) Math.min(Math.max(hy, 0), H), t, in, ppd, mc, c); return; }
 
         // atmosphere: a colour grade over the whole picture so the world matches the sky
         if (atm > 0.01f) g.fillGradient(0, 0, W, H, Gfx.a(col[3], 0.15f * atm), Gfx.a(col[3], 0.22f * atm));
@@ -300,6 +326,147 @@ public final class Skies {
         }
     }
 
+    // elevation keyframes: { sun elevation in degrees, r, g, b } or { elevation, alpha }
+    private static final float[][] HZ = { { 25, .72f, .86f, 1f }, { 10, .98f, .85f, .62f }, { 3, 1f, .62f, .32f }, { -1, .95f, .45f, .35f },
+            { -5, .72f, .36f, .50f }, { -9, .40f, .30f, .55f }, { -14, .14f, .17f, .34f }, { -20, .06f, .08f, .18f } };
+    private static final float[][] ZN = { { 25, .20f, .42f, .82f }, { 8, .22f, .36f, .68f }, { 0, .18f, .25f, .52f }, { -6, .10f, .12f, .34f },
+            { -12, .04f, .06f, .20f }, { -20, .01f, .02f, .08f } };
+    private static final float[][] AH = { { 25, 0 }, { 18, .10f }, { 8, .30f }, { 1, .52f }, { -4, .45f }, { -10, .25f }, { -16, .10f }, { -24, .06f } };
+    private static final float[][] AZ = { { 25, 0 }, { 10, .03f }, { 0, .16f }, { -6, .26f }, { -12, .30f }, { -24, .30f } };
+    private static final float[][] CLD = new float[8][3];   // az, el, size
+    public static volatile int timeRead = 0;                 // 1 = the real time of day is read, -1 = not possible
+
+    static {
+        Random r = new Random(21);
+        for (int i = 0; i < CLD.length; i++) { CLD[i][0] = r.nextFloat() * 360f - 180f; CLD[i][1] = 16f + r.nextFloat() * 36f; CLD[i][2] = 0.8f + r.nextFloat() * 0.8f; }
+    }
+
+    private static float[] key(float e, float[][] K) {
+        int n = K[0].length - 1;
+        float[] out = new float[n];
+        if (e >= K[0][0]) { System.arraycopy(K[0], 1, out, 0, n); return out; }
+        for (int i = 0; i < K.length - 1; i++) {
+            if (e >= K[i + 1][0]) {
+                float t = (K[i][0] - e) / (K[i][0] - K[i + 1][0]);
+                for (int j = 0; j < n; j++) out[j] = K[i][j + 1] + (K[i + 1][j + 1] - K[i][j + 1]) * t;
+                return out;
+            }
+        }
+        System.arraycopy(K[K.length - 1], 1, out, 0, n);
+        return out;
+    }
+
+    private static int rgb(float[] c) { return 0xFF000000 | ((int) (c[0] * 255) << 16) | ((int) (c[1] * 255) << 8) | (int) (c[2] * 255); }
+
+    private static long readDayTime(Minecraft mc) {
+        Object lvl = mc.level;
+        for (String n : new String[] { "getDayTime", "getOverworldClockTime", "getTimeOfDay" }) {
+            try {
+                Object v = lvl.getClass().getMethod(n).invoke(lvl);
+                if (v instanceof Number num) { timeRead = 1; return num.longValue(); }
+            } catch (Throwable ignored) {}
+        }
+        timeRead = -1;
+        return 6000;
+    }
+
+    private static void glowDisc(GuiGraphicsExtractor g, float dx, float dy, float dz, float radiusDeg, int color, float alpha, float ppd) {
+        float[] o = new float[2];
+        if (!projDir(dx, dy, dz, o)) return;
+        float r = Math.min(120f, radiusDeg * ppd);
+        Gfx.circle(g, o[0], o[1], r, Gfx.a(color, alpha));
+    }
+
+    /** Sky that follows the real time of day: blue day, golden hour, sunset, twilight, night with Milky Way. */
+    private static void realistic(GuiGraphicsExtractor g, int W, int H, float hy, int hyi, float t, float in, float ppd, Minecraft mc, ClientConfig c) {
+        long dayTime = c.skyTime > 0 && c.skyTime <= 4 ? new long[] { 0, 6000, 12500, 15500, 18000 }[c.skyTime] : readDayTime(mc);
+        double ang = (dayTime % 24000L) / 24000.0 * Math.PI * 2;
+        float sx = (float) Math.cos(ang), sy = (float) Math.sin(ang);
+        float e = (float) Math.toDegrees(Math.asin(sy));          // sun elevation
+        float[] hc = key(e, HZ), zc = key(e, ZN);
+        int hcol = rgb(hc), zcol = rgb(zc);
+        float ah = key(e, AH)[0] * in, az = key(e, AZ)[0] * in;
+        float night = Math.max(0f, Math.min(1f, (-e - 4f) / 12f));
+        float sunset = Math.max(0f, Math.min(1f, 1f - Math.abs(e - 2f) / 14f));
+
+        if (hy >= 6) {
+            // colour of the sky; at noon this is almost invisible, so the normal blue stays
+            g.fillGradient(0, 0, W, hyi, Gfx.a(zcol, az), Gfx.a(hcol, ah));
+            if (hyi < H) g.fillGradient(0, hyi, W, Math.min(H, hyi + 40), Gfx.a(hcol, ah * 0.85f), Gfx.a(hcol, 0f));
+            // aerial haze at the horizon
+            float hazeA = 0.10f * in + 0.5f * ah;
+            int hh = Math.max(10, (int) (hyi * 0.22f));
+            g.fillGradient(0, hyi - hh, W, hyi, Gfx.a(hcol, 0f), Gfx.a(hcol, hazeA));
+            if (hyi < H) g.fillGradient(0, hyi, W, Math.min(H, hyi + 24), Gfx.a(hcol, hazeA), Gfx.a(hcol, 0f));
+
+            // warm glow on the side of the sky where the sun is
+            if (e > -9f && e < 20f) {
+                float[] o = new float[2];
+                float hx = sx >= 0 ? 1f : -1f;
+                float flick = 0.94f + 0.06f * (float) Math.sin(t * 0.35f);
+                if (projDir(hx, 0.05f, 0f, o) && o[1] < hy + 4) {
+                    float cy = Math.min(o[1], hy - 2);
+                    for (int i = 0; i < 3; i++) {
+                        float w = (70 - i * 22) * ppd, h = (15 - i * 4) * ppd * 0.35f;
+                        Gfx.roundF(g, o[0] - w / 2, cy - h, w, h, h / 2, Gfx.a(hcol, (0.10f + 0.07f * i) * sunset * in * flick));
+                    }
+                }
+            }
+            // sun bloom
+            if (sy > -0.05f) {
+                float warm = Math.max(0f, Math.min(1f, 1f - e / 28f));
+                int bloom = Gfx.lerp(0xFFFFF4D8, 0xFFFFA860, warm);
+                glowDisc(g, sx, sy, 0f, 13f, bloom, 0.05f * in, ppd);
+                glowDisc(g, sx, sy, 0f, 7f, bloom, 0.08f * in, ppd);
+                glowDisc(g, sx, sy, 0f, 3f, bloom, 0.12f * in, ppd);
+            }
+            // moon halo
+            if (-sy > 0.02f) {
+                glowDisc(g, -sx, -sy, 0f, 10f, 0xFFCFD8FF, 0.05f * night * in, ppd);
+                glowDisc(g, -sx, -sy, 0f, 4.5f, 0xFFE8EEFF, 0.09f * night * in, ppd);
+            }
+        }
+
+        // soft drifting clouds (high up only, so they do not paint over hills)
+        float[] o = new float[2];
+        int cc = Gfx.lerp(0xFFFFFFFF, hcol, Math.min(1f, sunset * 1.1f));
+        cc = Gfx.lerp(cc, 0xFF4A5878, night);
+        float ca = (0.13f - 0.07f * night) * in;
+        for (int i = 0; i < CLD.length; i++) {
+            float az0 = CLD[i][0] + t * 0.35f;
+            if (!proj(az0, CLD[i][1], o) || o[1] > hy - 12) continue;
+            float s0 = CLD[i][2], w = 34 * ppd * s0, h = 6.5f * ppd * s0;
+            Gfx.roundF(g, o[0] - w / 2, o[1] - h / 2, w, h, h / 2, Gfx.a(cc, ca));
+            Gfx.roundF(g, o[0] - w * 0.30f, o[1] - h * 0.95f, w * 0.55f, h * 0.9f, h * 0.45f, Gfx.a(cc, ca * 0.9f));
+            Gfx.roundF(g, o[0] + w * 0.05f, o[1] - h * 0.75f, w * 0.38f, h * 0.7f, h * 0.35f, Gfx.a(cc, ca * 0.8f));
+        }
+
+        // night: more stars, Milky Way band, shooting stars
+        if (night > 0.05f && hy >= 6) {
+            stars(g, hy, (int) (N * night), t, in * night);
+            for (int i = -5; i <= 5; i++) {
+                float s1 = i / 5f, az1 = s1 * 130f, el1 = 62f - 48f * s1 * s1;
+                if (!proj(az1 + 40f, el1, o) || o[1] > hy - 10) continue;
+                float w = 30 * ppd, h = 7.5f * ppd;
+                Gfx.roundF(g, o[0] - w / 2, o[1] - h / 2, w, h, h / 2, Gfx.a(0xFFB8C4FF, 0.050f * night * in));
+                Gfx.roundF(g, o[0] - w / 3, o[1] - h / 4, w * 0.66f, h * 0.5f, h * 0.25f, Gfx.a(0xFFF2F0FF, 0.055f * night * in));
+            }
+            float ph = (t / 9f) % 1f;
+            if (ph < 0.10f) {
+                int seed = (int) (t / 9f);
+                float u = ph / 0.10f;
+                if (proj(((seed * 97) % 200) - 100f, 38f + (seed * 31) % 25, o)) {
+                    float sx0 = o[0] - u * 70f, sy0 = o[1] + u * 40f;
+                    for (int j = 0; j < 12; j++) {
+                        float fx = sx0 + j * 2.6f, fy = sy0 - j * 1.5f;
+                        if (fy > hy - 4) continue;
+                        g.fill((int) fx, (int) fy, (int) fx + 2, (int) fy + 2, Gfx.a(0xFFFFFFFF, (1f - j / 12f) * 0.9f * night * in));
+                    }
+                }
+            }
+        }
+    }
+
     private static void aurora(GuiGraphicsExtractor g, int W, float hy, float t, float in, float ppd) {
         for (int r = 0; r < 2; r++) {
             int col = r == 0 ? 0xFF38FFA8 : 0xFF9B5CFF;
@@ -337,6 +504,7 @@ public final class Skies {
             case 12 -> Gfx.roundV(g, cx - 8, by - 8, 16, 16, 8, 0xFFFFE066, 0xFFFF4DB8);
             case 13 -> { for (int i = 0; i < 8; i++) g.fill(x + 5 + (i * 29) % Math.max(4, w - 10), y + 4 + (i * 17) % Math.max(4, h - 12), x + 8 + (i * 29) % Math.max(4, w - 10), y + 6 + (i * 17) % Math.max(4, h - 12), 0xFFFFB0CC); }
             case 14 -> { Gfx.roundF(g, cx - 12, y + h * 0.4f - 1.5f, 24, 3, 1.5f, 0xAAD9B27A); Gfx.circle(g, cx, y + h * 0.4f, 6, 0xFFE9C58F); }
+            case 16 -> { g.fillGradient(x + 2, y + h - 14, x + w - 2, y + h - 2, 0x00FFC080, 0xAAFFC080); Gfx.circle(g, x + w * 0.70f, y + h * 0.36f, 5, 0xFFFFF0C0); }
             default -> { }
         }
     }
