@@ -1,0 +1,8 @@
+{
+  "key.myclient.menu": "Open Client Menu",
+  "key.myclient.zoom": "Zoom (hold)",
+  "key.myclient.next": "Next song",
+  "key.myclient.prev": "Previous song",
+  "key.myclient.play": "Play / pause",
+  "category.myclient": "My Client"
+}

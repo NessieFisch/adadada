@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "myclient",
+  "version": "${version}",
+  "name": "My Client",
+  "description": "HUD + sky effects + custom cursor. Press Right Shift.",
+  "environment": "client",
+  "entrypoints": { "client": ["com.myclient.MyClient"] },
+  "depends": {
+    "fabricloader": ">=0.19.3",
+    "minecraft": "~26.2",
+    "java": ">=25",
+    "fabric-api": "*"
+  }
+}

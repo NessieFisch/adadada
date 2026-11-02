@@ -1,0 +1,4 @@
+{ "providers": [
+  { "type": "ttf", "file": "myclient:lyr5.ttf", "size": 10.5, "oversample": 8.0, "shift": [0.0, 0.0] },
+  { "type": "reference", "id": "minecraft:default" }
+] }
